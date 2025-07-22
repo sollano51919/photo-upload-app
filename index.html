@@ -92,12 +92,12 @@
 
         status.textContent = '⏳ Uploading…';
 
-        fetch('https://script.google.com/macros/s/AKfycby9pH9sVLjLltb8jtOPrdHUsIwzHtlZwPhG6GPsBnR0PsNHd_lDOL5GIenJ7uX6xE8vJw/exec', {
+        const formData = new FormData();
+        formData.append("image", dataUrl);  // ✅ Avoids CORS preflight
+
+        fetch('https://script.google.com/macros/s/AKfycbxjodAjQShaat_QdrOgnMM9C6nIJcKPiB-H7yPOIGg_dcgwKXS3OiJ6tUqndkQ12HToJw/exec', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ image: dataUrl })  // ✅ fixed key name
+          body: formData
         })
         .then(response => response.json())
         .then(data => {
@@ -110,6 +110,7 @@
           console.error(error);
         });
       };
+
       reader.readAsDataURL(file);
     });
   </script>
