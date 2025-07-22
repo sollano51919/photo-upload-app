@@ -21,7 +21,7 @@
       margin: auto;
       box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
     }
-    input, button {
+    input, button, select {
       margin: 1rem 0;
       padding: 0.75rem;
       width: 100%;
@@ -30,7 +30,7 @@
       font-size: 1rem;
       font-weight: bold;
     }
-    input {
+    input, select {
       background: #fff;
       color: #333;
     }
@@ -70,7 +70,12 @@
   <h1>📸 Snap to Sheet</h1>
 
   <div class="card">
-    <input type="file" accept="image/*" capture="environment" multiple />
+    <select id="mode">
+      <option value="single">Single Upload</option>
+      <option value="batch">Batch Report (PDF)</option>
+    </select>
+
+    <input type="file" accept="image/*" capture="environment" multiple id="fileInput" />
     <button id="uploadBtn">Upload to Sheet</button>
     <div class="spinner" id="spinner"></div>
     <div id="status"></div>
@@ -79,6 +84,7 @@
 
   <script>
     const fileInput = document.getElementById('fileInput');
+    const modeSelector = document.getElementById('mode');
     const btn = document.getElementById('uploadBtn');
     const spinner = document.getElementById('spinner');
     const status = document.getElementById('status');
@@ -86,7 +92,7 @@
     let isUploading = false;
 
     fileInput.addEventListener('change', () => {
-      previews.innerHTML = '';  // Clear previous previews
+      previews.innerHTML = '';
       const files = fileInput.files;
       [...files].forEach(file => {
         const reader = new FileReader();
@@ -116,12 +122,14 @@
 
       let completed = 0;
       const total = files.length;
+      const uploadMode = modeSelector.value;
 
       [...files].forEach(file => {
         const reader = new FileReader();
         reader.onload = () => {
           const formData = new FormData();
           formData.append("image", reader.result);
+          formData.append("mode", uploadMode);  // 🔧 Controls backend behavior
 
           fetch('https://script.google.com/macros/s/AKfycbxjodAjQShaat_QdrOgnMM9C6nIJcKPiB-H7yPOIGg_dcgwKXS3OiJ6tUqndkQ12HToJw/exec', {
             method: 'POST',
@@ -132,7 +140,19 @@
             completed++;
             if (completed === total) {
               spinner.style.display = 'none';
-              status.textContent = `✅ Uploaded ${total} image${total > 1 ? 's' : ''} successfully!`;
+              status.textContent = data.message;
+
+              // Show PDF link if returned
+              if (data.pdfUrl) {
+                const link = document.createElement('a');
+                link.href = data.pdfUrl;
+                link.textContent = "📄 View PDF Report";
+                link.target = "_blank";
+                link.style.display = "block";
+                link.style.marginTop = "1rem";
+                status.appendChild(link);
+              }
+
               isUploading = false;
               btn.disabled = false;
             }
@@ -140,7 +160,7 @@
           .catch(error => {
             console.error(error);
             spinner.style.display = 'none';
-            status.textContent = '❌ Upload failed. Try again.';
+            status.textContent = '❌ Upload failed.';
             isUploading = false;
             btn.disabled = false;
           });
