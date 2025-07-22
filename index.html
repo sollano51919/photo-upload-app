@@ -71,48 +71,67 @@
   </div>
 
   <script>
-    const fileInput = document.getElementById('fileInput');
-    const btn = document.getElementById('uploadBtn');
-    const spinner = document.getElementById('spinner');
-    const status = document.getElementById('status');
+  const fileInput = document.getElementById('fileInput');
+  const btn = document.getElementById('uploadBtn');
+  const spinner = document.getElementById('spinner');
+  const status = document.getElementById('status');
 
-    btn.addEventListener('click', () => {
-      const file = fileInput.files[0];
-      if (!file) {
-        status.textContent = "⚠️ Please select a photo.";
-        return;
-      }
+  // Create image preview element
+  const preview = document.createElement('img');
+  preview.style.maxWidth = '100%';
+  preview.style.borderRadius = '8px';
+  preview.style.marginTop = '1rem';
+  status.insertAdjacentElement('afterend', preview);
 
-      spinner.style.display = 'block';
-      status.textContent = '⏳ Reading image…';
+  let isUploading = false;
 
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result;
+  btn.addEventListener('click', () => {
+    if (isUploading) return;  // ⛔ Prevent duplicate clicks
 
-        status.textContent = '⏳ Uploading…';
+    const file = fileInput.files[0];
+    if (!file) {
+      status.textContent = "⚠️ Please select a photo.";
+      preview.src = '';
+      return;
+    }
 
-        const formData = new FormData();
-        formData.append("image", dataUrl);  // ✅ Avoids CORS preflight
+    isUploading = true;
+    btn.disabled = true;
+    spinner.style.display = 'block';
+    status.textContent = '⏳ Reading image…';
 
-        fetch('https://script.google.com/macros/s/AKfycbxjodAjQShaat_QdrOgnMM9C6nIJcKPiB-H7yPOIGg_dcgwKXS3OiJ6tUqndkQ12HToJw/exec', {
-          method: 'POST',
-          body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-          spinner.style.display = 'none';
-          status.textContent = data.message;
-        })
-        .catch(error => {
-          spinner.style.display = 'none';
-          status.textContent = '❌ Upload failed. Check CORS or permissions.';
-          console.error(error);
-        });
-      };
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      preview.src = dataUrl;  // ✅ Show preview
 
-      reader.readAsDataURL(file);
-    });
-  </script>
+      status.textContent = '⏳ Uploading…';
+
+      const formData = new FormData();
+      formData.append("image", dataUrl);
+
+      fetch('https://script.google.com/macros/s/AKfycbxjodAjQShaat_QdrOgnMM9C6nIJcKPiB-H7yPOIGg_dcgwKXS3OiJ6tUqndkQ12HToJw/exec', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        spinner.style.display = 'none';
+        status.textContent = data.message;
+        isUploading = false;
+        btn.disabled = false;
+      })
+      .catch(error => {
+        spinner.style.display = 'none';
+        status.textContent = '❌ Upload failed.';
+        console.error(error);
+        isUploading = false;
+        btn.disabled = false;
+      });
+    };
+
+    reader.readAsDataURL(file);
+  });
+</script>
 </body>
 </html>
