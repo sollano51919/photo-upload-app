@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>📸 Snap to Sheet</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { 
+      font-family: 'Segoe UI'; 
+      background: linear-gradient(to right, #00c6ff, #0072ff); 
+      color: #fff; 
+      text-align: center; 
+      padding: 2rem; 
+      margin: 0;
+    }
+    .card { 
+      background: rgba(255, 255, 255, 0.1); 
+      border-radius: 12px; 
+      padding: 2rem; 
+      max-width: 400px; 
+      margin: auto; 
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    }
+    input, button { 
+      margin: 1rem 0; 
+      padding: 0.75rem; 
+      width: 100%; 
+      border: none; 
+      border-radius: 8px; 
+      font-size: 1rem; 
+      font-weight: bold;
+    }
+    input { 
+      background: #fff; 
+      color: #333;
+    }
+    button { 
+      background: #fff; 
+      color: #0072ff; 
+      cursor: pointer;
+    }
+    button:hover { 
+      background: #e0e0e0;
+    }
+    #status { 
+      margin-top: 1rem; 
+    }
+    .spinner { 
+      display: none; 
+      margin: 1rem auto; 
+      width: 40px; 
+      height: 40px; 
+      border: 4px solid #fff; 
+      border-top: 4px solid #0072ff; 
+      border-radius: 50%; 
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 
+      to { 
+        transform: rotate(360deg); 
+      } 
+    }
+  </style>
+</head>
+<body>
+  <h1>📸 Snap to Sheet</h1>
+
+  <div class="card">
+    <input type="file" accept="image/*" capture="environment" id="fileInput" />
+    <button id="uploadBtn">Upload to Sheet</button>
+    <div class="spinner" id="spinner"></div>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const btn = document.getElementById('uploadBtn');
+    const spinner = document.getElementById('spinner');
+    const status = document.getElementById('status');
+
+    btn.addEventListener('click', () => {
+      const file = fileInput.files[0];
+      if (!file) {
+        status.textContent = "⚠️ Please select a photo.";
+        return;
+      }
+
+      spinner.style.display = 'block';
+      status.textContent = '⏳ Reading image…';
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result;
+
+        status.textContent = '⏳ Uploading…';
+
+        fetch('https://script.google.com/macros/s/AKfycbxjodAjQShaat_QdrOgnMM9C6nIJcKPiB-H7yPOIGg_dcgwKXS3OiJ6tUqndkQ12HToJw/exec', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ image: dataUrl })  // ✅ updated to match backend
+        })
+        .then(response => response.json())
+        .then(data => {
+          spinner.style.display = 'none';
+          status.textContent = data.message;
+        })
+        .catch(error => {
+          spinner.style.display = 'none';
+          status.textContent = '❌ Failed to upload image';
+          console.error(error);
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  </script>
+
+  <script src="https://apis.google.com/js/api.js"></script>
+</body>
+</html>
