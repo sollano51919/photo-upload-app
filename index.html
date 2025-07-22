@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>📸 Snap to Sheet</title>
+  <title>📸 Snap-to-Sheet Guided Batch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
@@ -21,7 +21,7 @@
       margin: auto;
       box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
     }
-    input, button, select {
+    input[type="file"], button {
       margin: 1rem 0;
       padding: 0.75rem;
       width: 100%;
@@ -30,7 +30,7 @@
       font-size: 1rem;
       font-weight: bold;
     }
-    input, select {
+    input {
       background: #fff;
       color: #333;
     }
@@ -41,9 +41,6 @@
     }
     button:hover {
       background: #e0e0e0;
-    }
-    #status {
-      margin-top: 1rem;
     }
     .spinner {
       display: none;
@@ -67,105 +64,96 @@
   </style>
 </head>
 <body>
-  <h1>📸 Snap to Sheet</h1>
+  <h1>📸 Guided Batch Upload</h1>
 
   <div class="card">
-    <select id="mode">
-      <option value="single">Single Upload</option>
-      <option value="batch">Batch Report (PDF)</option>
-    </select>
-
-    <input type="file" accept="image/*" capture="environment" multiple id="fileInput" />
-    <button id="uploadBtn">Upload to Sheet</button>
+    <div id="previews"></div>
+    <input type="file" accept="image/*" capture="environment" id="cameraInput" style="display:none;" />
+    <button id="captureBtn">Capture Next Page</button>
+    <button id="uploadBtn">Upload All as PDF</button>
     <div class="spinner" id="spinner"></div>
     <div id="status"></div>
-    <div id="previews"></div>
   </div>
 
   <script>
-    const fileInput = document.getElementById('fileInput');
-    const modeSelector = document.getElementById('mode');
-    const btn = document.getElementById('uploadBtn');
-    const spinner = document.getElementById('spinner');
-    const status = document.getElementById('status');
+    const cameraInput = document.getElementById('cameraInput');
+    const captureBtn = document.getElementById('captureBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
     const previews = document.getElementById('previews');
+    const status = document.getElementById('status');
+    const spinner = document.getElementById('spinner');
+    let imageList = [];
     let isUploading = false;
 
-    fileInput.addEventListener('change', () => {
-      previews.innerHTML = '';
-      const files = fileInput.files;
-      [...files].forEach(file => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const img = document.createElement('img');
-          img.src = reader.result;
-          previews.appendChild(img);
-        };
-        reader.readAsDataURL(file);
-      });
+    captureBtn.addEventListener('click', () => {
+      cameraInput.click();  // open camera
     });
 
-    btn.addEventListener('click', () => {
-      if (isUploading) return;
+    cameraInput.addEventListener('change', () => {
+      const file = cameraInput.files[0];
+      if (!file) return;
 
-      const files = fileInput.files;
-      if (!files.length) {
-        status.textContent = "⚠️ Please select at least one photo.";
-        previews.innerHTML = '';
-        return;
-      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        imageList.push(reader.result);  // save base64 image
+        const img = document.createElement('img');
+        img.src = reader.result;
+        previews.appendChild(img);
+        status.textContent = `✅ Page ${imageList.length} captured`;
+      };
+      reader.readAsDataURL(file);
+
+      // Reset file input for next capture
+      cameraInput.value = "";
+    });
+
+    uploadBtn.addEventListener('click', () => {
+      if (isUploading || imageList.length === 0) return;
 
       isUploading = true;
-      btn.disabled = true;
       spinner.style.display = 'block';
-      status.textContent = '⏳ Uploading…';
+      status.textContent = '⏳ Uploading batch…';
+      uploadBtn.disabled = true;
+      captureBtn.disabled = true;
 
       let completed = 0;
-      const total = files.length;
-      const uploadMode = modeSelector.value;
+      const total = imageList.length;
 
-      [...files].forEach(file => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const formData = new FormData();
-          formData.append("image", reader.result);
-          formData.append("mode", uploadMode);  // 🔧 Controls backend behavior
+      imageList.forEach(imageData => {
+        const formData = new FormData();
+        formData.append("image", imageData);
+        formData.append("mode", "batch");
 
-          fetch('https://script.google.com/macros/s/AKfycbxjodAjQShaat_QdrOgnMM9C6nIJcKPiB-H7yPOIGg_dcgwKXS3OiJ6tUqndkQ12HToJw/exec', {
-            method: 'POST',
-            body: formData
-          })
-          .then(response => response.json())
-          .then(data => {
-            completed++;
-            if (completed === total) {
-              spinner.style.display = 'none';
-              status.textContent = data.message;
-
-              // Show PDF link if returned
-              if (data.pdfUrl) {
-                const link = document.createElement('a');
-                link.href = data.pdfUrl;
-                link.textContent = "📄 View PDF Report";
-                link.target = "_blank";
-                link.style.display = "block";
-                link.style.marginTop = "1rem";
-                status.appendChild(link);
-              }
-
-              isUploading = false;
-              btn.disabled = false;
-            }
-          })
-          .catch(error => {
-            console.error(error);
+        fetch('https://script.google.com/macros/s/AKfycbxjodAjQShaat_QdrOgnMM9C6nIJcKPiB-H7yPOIGg_dcgwKXS3OiJ6tUqndkQ12HToJw/exec', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          completed++;
+          if (completed === total) {
             spinner.style.display = 'none';
-            status.textContent = '❌ Upload failed.';
+            status.textContent = `✅ Uploaded ${total} pages!`;
+            if (data.pdfUrl) {
+              const link = document.createElement('a');
+              link.href = data.pdfUrl;
+              link.textContent = "📄 View PDF Report";
+              link.target = "_blank";
+              link.style.display = "block";
+              link.style.marginTop = "1rem";
+              status.appendChild(link);
+            }
             isUploading = false;
-            btn.disabled = false;
-          });
-        };
-        reader.readAsDataURL(file);
+            uploadBtn.disabled = false;
+          }
+        })
+        .catch(error => {
+          console.error(error);
+          spinner.style.display = 'none';
+          status.textContent = '❌ Upload failed.';
+          isUploading = false;
+          uploadBtn.disabled = false;
+        });
       });
     });
   </script>
