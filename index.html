@@ -17,7 +17,7 @@
       background: rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       padding: 2rem;
-      max-width: 400px;
+      max-width: 500px;
       margin: auto;
       box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
     }
@@ -58,80 +58,96 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+    #previews img {
+      max-width: 100%;
+      margin-top: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
   </style>
 </head>
 <body>
   <h1>📸 Snap to Sheet</h1>
 
   <div class="card">
-    <input type="file" accept="image/*" capture="environment" id="fileInput" />
+    <input type="file" accept="image/*" multiple id="fileInput" />
     <button id="uploadBtn">Upload to Sheet</button>
     <div class="spinner" id="spinner"></div>
     <div id="status"></div>
+    <div id="previews"></div>
   </div>
 
   <script>
-  const fileInput = document.getElementById('fileInput');
-  const btn = document.getElementById('uploadBtn');
-  const spinner = document.getElementById('spinner');
-  const status = document.getElementById('status');
+    const fileInput = document.getElementById('fileInput');
+    const btn = document.getElementById('uploadBtn');
+    const spinner = document.getElementById('spinner');
+    const status = document.getElementById('status');
+    const previews = document.getElementById('previews');
+    let isUploading = false;
 
-  // Create image preview element
-  const preview = document.createElement('img');
-  preview.style.maxWidth = '100%';
-  preview.style.borderRadius = '8px';
-  preview.style.marginTop = '1rem';
-  status.insertAdjacentElement('afterend', preview);
+    fileInput.addEventListener('change', () => {
+      previews.innerHTML = '';  // Clear previous previews
+      const files = fileInput.files;
+      [...files].forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = document.createElement('img');
+          img.src = reader.result;
+          previews.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+    });
 
-  let isUploading = false;
+    btn.addEventListener('click', () => {
+      if (isUploading) return;
 
-  btn.addEventListener('click', () => {
-    if (isUploading) return;  // ⛔ Prevent duplicate clicks
+      const files = fileInput.files;
+      if (!files.length) {
+        status.textContent = "⚠️ Please select at least one photo.";
+        previews.innerHTML = '';
+        return;
+      }
 
-    const file = fileInput.files[0];
-    if (!file) {
-      status.textContent = "⚠️ Please select a photo.";
-      preview.src = '';
-      return;
-    }
-
-    isUploading = true;
-    btn.disabled = true;
-    spinner.style.display = 'block';
-    status.textContent = '⏳ Reading image…';
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result;
-      preview.src = dataUrl;  // ✅ Show preview
-
+      isUploading = true;
+      btn.disabled = true;
+      spinner.style.display = 'block';
       status.textContent = '⏳ Uploading…';
 
-      const formData = new FormData();
-      formData.append("image", dataUrl);
+      let completed = 0;
+      const total = files.length;
 
-      fetch('https://script.google.com/macros/s/AKfycbxjodAjQShaat_QdrOgnMM9C6nIJcKPiB-H7yPOIGg_dcgwKXS3OiJ6tUqndkQ12HToJw/exec', {
-        method: 'POST',
-        body: formData
-      })
-      .then(response => response.json())
-      .then(data => {
-        spinner.style.display = 'none';
-        status.textContent = data.message;
-        isUploading = false;
-        btn.disabled = false;
-      })
-      .catch(error => {
-        spinner.style.display = 'none';
-        status.textContent = '❌ Upload failed.';
-        console.error(error);
-        isUploading = false;
-        btn.disabled = false;
+      [...files].forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const formData = new FormData();
+          formData.append("image", reader.result);
+
+          fetch('https://script.google.com/macros/s/AKfycbxjodAjQShaat_QdrOgnMM9C6nIJcKPiB-H7yPOIGg_dcgwKXS3OiJ6tUqndkQ12HToJw/exec', {
+            method: 'POST',
+            body: formData
+          })
+          .then(response => response.json())
+          .then(data => {
+            completed++;
+            if (completed === total) {
+              spinner.style.display = 'none';
+              status.textContent = `✅ Uploaded ${total} image${total > 1 ? 's' : ''} successfully!`;
+              isUploading = false;
+              btn.disabled = false;
+            }
+          })
+          .catch(error => {
+            console.error(error);
+            spinner.style.display = 'none';
+            status.textContent = '❌ Upload failed. Try again.';
+            isUploading = false;
+            btn.disabled = false;
+          });
+        };
+        reader.readAsDataURL(file);
       });
-    };
-
-    reader.readAsDataURL(file);
-  });
-</script>
+    });
+  </script>
 </body>
 </html>
